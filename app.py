@@ -20,26 +20,8 @@ st.markdown("""
     html, body, [class*="css"] {
         font-family: 'Fustat', sans-serif !important;
         font-size: 19px !important;
-        text-align: right;
     }
     
-    h1, h2, h3, p, label {
-        text-align: center !important;
-    }
-    
-    .stSelectbox, .stRadio, .stTextInput, .stTextArea, .stFileUploader, .stButton, .stDownloadButton {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin-left: auto;
-        margin-right: auto;
-    }
-    
-    div.stButton > button, div.stDownloadButton > button {
-        display: block;
-        margin: 0 auto;
-    }
-
     p, label, span, div {
         font-size: 19px !important;
     }
