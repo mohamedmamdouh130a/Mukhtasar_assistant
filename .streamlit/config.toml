@@ -1,4 +1,7 @@
 [theme]
 base = "dark"
-textColor = "#FFFFFF"
-font = " 'Aldrich' , 'Palestine': https://fonts.google.com/specimen/Aldrich & https://www.arfonts.net/palestine-font"
+primaryColor = "#3B82F6"
+backgroundColor = "#0F172A"
+secondaryBackgroundColor = "#1E293B"
+textColor = "#F1F5F9"
+font = " 'Fustat': https://fonts.google.com/specimen/Fustat"
