@@ -1,0 +1,13 @@
+streamlit
+groq
+langchain
+langchain-core
+langchain-community
+langchain-huggingface
+faiss-cpu
+sentence-transformers
+beautifulsoup4
+requests
+pypdf
+fpdf2
+python-docx
