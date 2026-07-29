@@ -16,13 +16,37 @@ st.set_page_config(page_title="Mukhtasar Assistant", page_icon="🎯", layout="c
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Fustat:wght@300;400;500;600;700&display=swap');
+    
     html, body, [class*="css"] {
         font-family: 'Fustat', sans-serif !important;
-        font-size: 17px !important;
+        font-size: 19px !important;
+        text-align: right;
     }
-    h1 { font-size: 2.2rem !important; }
-    h2 { font-size: 1.7rem !important; }
-    h3 { font-size: 1.3rem !important; }
+    
+    h1, h2, h3, p, label {
+        text-align: center !important;
+    }
+    
+    .stSelectbox, .stRadio, .stTextInput, .stTextArea, .stFileUploader, .stButton, .stDownloadButton {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    div.stButton > button, div.stDownloadButton > button {
+        display: block;
+        margin: 0 auto;
+    }
+
+    p, label, span, div {
+        font-size: 19px !important;
+    }
+
+    h1 { font-size: 2.5rem !important; }
+    h2 { font-size: 2.0rem !important; }
+    h3 { font-size: 1.5rem !important; }
     </style>
 """, unsafe_allow_html=True)
 
