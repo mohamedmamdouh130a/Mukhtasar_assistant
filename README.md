@@ -69,7 +69,11 @@ Follow these steps to set up and run the project locally:
 
 # 📸 Demo
 
-
+<img width="1096" height="857" alt="Screenshot 2026-07-29 094521" src="https://github.com/user-attachments/assets/74ade960-e778-4a2c-b257-ecd83e19fd19" />
+<img width="948" height="627" alt="Screenshot 2026-07-29 095059" src="https://github.com/user-attachments/assets/8ab2e6f9-07b4-4b97-857b-fb26db3593f5" />
+<img width="905" height="235" alt="Screenshot 2026-07-29 095151" src="https://github.com/user-attachments/assets/9cdca3fc-b8be-4084-a237-569bbe23b771" />
+<img width="918" height="502" alt="Screenshot 2026-07-29 095145" src="https://github.com/user-attachments/assets/95cec85b-ae31-4a2f-8b8e-05814e126e84" />
+<img width="921" height="567" alt="Screenshot 2026-07-29 095115" src="https://github.com/user-attachments/assets/fbac055b-b70a-4cd1-914a-e08845f574e0" />
 
 ---
 
