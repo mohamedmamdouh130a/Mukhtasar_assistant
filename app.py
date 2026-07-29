@@ -98,9 +98,8 @@ def export_pdf(summary, history):
         pdf.ln(2)
     return bytes(pdf.output())
 
-st.markdown("# 🎯 Mukhtasar AI")
+st.markdown("# 🎯 Mukhtasar AI", unsafe_allow_html=True)
 st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive RAG chat.</p>', unsafe_allow_html=True)
-
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
 source = st.radio("Source:", ["URL", "PDF", "Text"])
 
