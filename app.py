@@ -19,14 +19,14 @@ st.markdown("""
     
     html, body, [class*="css"] {
         font-family: 'Fustat', sans-serif !important;
-        font-size: 20px !important;
+        font-size: 19px !important;
     }
     
     p, label, span, div {
-        font-size: 16px !important;
+        font-size: 19px !important;
     }
 
-    h1 { font-size: 4.5rem !important; }
+    h1 { font-size: 3.0rem !important; }
     h2 { font-size: 2.0rem !important; }
     h3 { font-size: 1.5rem !important; }
     .subtitle {
