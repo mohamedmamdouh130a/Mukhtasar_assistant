@@ -70,6 +70,8 @@ Follow these steps to set up and run the project locally:
 <img width="905" height="235" alt="Screenshot 2026-07-29 095151" src="https://github.com/user-attachments/assets/9cdca3fc-b8be-4084-a237-569bbe23b771" />
 <img width="921" height="567" alt="Screenshot 2026-07-29 095115" src="https://github.com/user-attachments/assets/fbac055b-b70a-4cd1-914a-e08845f574e0" />
 <img width="918" height="502" alt="Screenshot 2026-07-29 095145" src="https://github.com/user-attachments/assets/95cec85b-ae31-4a2f-8b8e-05814e126e84" />
+<img width="976" height="228" alt="Screenshot 2026-07-29 165246" src="https://github.com/user-attachments/assets/d4e9a33b-fe9e-454c-bd30-a3c7b267761d" />
+<img width="990" height="812" alt="Screenshot 2026-07-29 173228" src="https://github.com/user-attachments/assets/a8d8ab89-0a35-4f59-8c99-d481f0fe450a" />
 
 ---
 
@@ -82,7 +84,6 @@ Follow these steps to set up and run the project locally:
 
 # 🔮 Future Improvements
 
-* Integrate support for additional document formats (e.g., scanned images via OCR).
 * Implement advanced hybrid search combining keyword and vector retrieval.
 * Add session history persistence across multiple user visits.
 
