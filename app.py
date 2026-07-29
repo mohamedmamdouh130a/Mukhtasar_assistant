@@ -22,10 +22,6 @@ st.markdown("""
         font-family: 'Fustat', sans-serif !important;
         font-size: 19px !important;
     }
-    
-    p, label, span, div {
-        font-size: 19px !important;
-    }
 
     h2 { font-size: 2.0rem !important; }
     h3 { font-size: 1.5rem !important; }
