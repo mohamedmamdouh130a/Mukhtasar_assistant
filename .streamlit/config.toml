@@ -1,0 +1,7 @@
+[theme]
+base = "dark"
+primaryColor = "#3bb2f6"
+backgroundColor = "#0F172A"
+secondaryBackgroundColor = "#1E293B"
+textColor = "#F1F5F9"
+font = "'Cairo':https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap"
