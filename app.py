@@ -26,7 +26,7 @@ st.markdown("""
         font-size: 16px !important;
     }
 
-    h1 { font-size: 3.0rem !important; }
+    h1 { font-size: 4.5rem !important; }
     h2 { font-size: 2.0rem !important; }
     h3 { font-size: 1.5rem !important; }
     .subtitle {
