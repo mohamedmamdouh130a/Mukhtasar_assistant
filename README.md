@@ -45,13 +45,12 @@
 Follow these steps to set up and run the project locally:
 
 1. **Clone the repository:**
-   ```bash
    git clone [https://github.com/mohamedmamdouh130a/Mukhtasar_assistant.git](https://github.com/mohamedmamdouh130a/Mukhtasar_assistant.git)
    cd Mukhtasar_assistant
 
-* pip install -r requirements.txt
-* Set up your Groq API key via Streamlit Secrets (.streamlit/secrets.toml) or environment variables: GROQ_API_KEY = "your_groq_api_key_here"
-* Run the application: streamlit run app.py
+2. pip install -r requirements.txt
+3. Set up your Groq API key via Streamlit Secrets (.streamlit/secrets.toml) or environment variables: GROQ_API_KEY = "your_groq_api_key_here"
+4. Run the application: streamlit run app.py
 ---
 
 # 🚀 Usage
