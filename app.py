@@ -12,7 +12,7 @@ from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
 
-st.set_page_config(page_title="Mukhtasar Assistant", page_icon="🎯", layout="centered")
+st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Fustat:wght@300;400;500;600;700&display=swap');
@@ -29,6 +29,12 @@ st.markdown("""
     h1 { font-size: 2.5rem !important; }
     h2 { font-size: 2.0rem !important; }
     h3 { font-size: 1.5rem !important; }
+    .subtitle {
+        color: #94A3B8;
+        font-size: 15px !important;
+        margin-top: -10px;
+        margin-bottom: 20px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -92,7 +98,8 @@ def export_pdf(summary, history):
         pdf.ln(2)
     return bytes(pdf.output())
 
-st.markdown("🎯 Mukhtasar Assistant")
+st.markdown("--- 🎯 Mukhtasar AI ---")
+st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive RAG chat.</p>', unsafe_allow_html=True)
 
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
 source = st.radio("Source:", ["URL", "PDF", "Text"])
