@@ -19,14 +19,14 @@ st.markdown("""
     
     html, body, [class*="css"] {
         font-family: 'Fustat', sans-serif !important;
-        font-size: 19px !important;
+        font-size: 20px !important;
     }
     
     p, label, span, div {
-        font-size: 19px !important;
+        font-size: 16px !important;
     }
 
-    h1 { font-size: 4.5rem !important; }
+    h1 { font-size: 3.0rem !important; }
     h2 { font-size: 2.0rem !important; }
     h3 { font-size: 1.5rem !important; }
     .subtitle {
@@ -98,7 +98,7 @@ def export_pdf(summary, history):
         pdf.ln(2)
     return bytes(pdf.output())
 
-st.markdown("# 🎯 Mukhtasar AI ")
+st.markdown("# 🎯 Mukhtasar AI")
 st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive RAG chat.</p>', unsafe_allow_html=True)
 
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
