@@ -13,6 +13,19 @@ from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
 
 st.set_page_config(page_title="Mukhtasar Assistant", page_icon="🎯", layout="centered")
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fustat:wght@300;400;500;600;700&display=swap');
+    html, body, [class*="css"] {
+        font-family: 'Fustat', sans-serif !important;
+        font-size: 17px !important;
+    }
+    h1 { font-size: 2.2rem !important; }
+    h2 { font-size: 1.7rem !important; }
+    h3 { font-size: 1.3rem !important; }
+    </style>
+""", unsafe_allow_html=True)
+
 api_key = st.secrets.get("GROQ_API_KEY")
 client = Groq(api_key=api_key)
 
