@@ -1,7 +1,7 @@
 [theme]
 base = "dark"
-primaryColor = "#3B82F6"
-backgroundColor = "#0B0F19"
-secondaryBackgroundColor = "#141C2E"
+primaryColor = "#0948af"
+backgroundColor = "#0c521f"
+secondaryBackgroundColor = "#225ab4"
 textColor = "#FFFFFF"
 font = " 'Aldrich' , 'Palestine': https://fonts.google.com/specimen/Aldrich & https://www.arfonts.net/palestine-font"
