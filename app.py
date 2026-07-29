@@ -13,6 +13,7 @@ from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
+st.title("🎯 Mukhtasar")
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Fustat:wght@300;400;500;600;700&display=swap');
@@ -26,7 +27,6 @@ st.markdown("""
         font-size: 19px !important;
     }
 
-    h1 { font-size: 3.0rem !important; }
     h2 { font-size: 2.0rem !important; }
     h3 { font-size: 1.5rem !important; }
     .subtitle {
@@ -98,7 +98,6 @@ def export_pdf(summary, history):
         pdf.ln(2)
     return bytes(pdf.output())
 
-st.markdown("# 🎯 Mukhtasar AI", unsafe_allow_html=True)
 st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive RAG chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
 source = st.radio("Source:", ["URL", "PDF", "Text"])
