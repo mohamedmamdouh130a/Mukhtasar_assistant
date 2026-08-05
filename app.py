@@ -4,7 +4,6 @@ import requests
 from bs4 import BeautifulSoup
 from io import BytesIO
 from docx import Document as DocxDocument
-from fpdf import FPDF
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -13,6 +12,10 @@ from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
 import arabic_reshaper
 from bidi.algorithm import get_display
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
@@ -72,15 +75,6 @@ def fix_arabic(text):
     except Exception:
         return text
 
-class CairoPDF(FPDF):
-    def __init__(self):
-        super().__init__()
-        font_path = "Cairo-Regular.ttf"
-        if os.path.exists(font_path):
-            self.add_font("Cairo", "", font_path, uni=True)
-        else:
-            self.add_font("Cairo", "", "Cairo-Regular.ttf", uni=True)
-
 def export_docx(summary, history):
     doc = DocxDocument()
     doc.add_heading('Mukhtasar Report', 0)
@@ -95,40 +89,85 @@ def export_docx(summary, history):
     return bio
 
 def export_pdf(summary, history):
-    pdf = CairoPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    
-    font_name = "Cairo"
-    try:
-        pdf.set_font(font_name, size=12)
-    except Exception:
-        font_name = "Helvetica"
-        pdf.set_font(font_name, size=12)
+    bio = BytesIO()
+    pdf = canvas.Canvas(bio, pagesize=letter)    
+    font_path = "Cairo-Regular.ttf"
+    font_name = "Helvetica"
+    if os.path.exists(font_path):
+        try:
+            pdfmetrics.registerFont(TTFont('CairoLocal', font_path))
+            font_name = 'CairoLocal'
+        except Exception:
+            pass
 
-    pdf.cell(200, 10, txt=fix_arabic("Mukhtasar Report"), ln=True, align='C')
-    pdf.ln(5)
+    width, height = letter
+    margin = 40
+    y = height - margin
     
-    pdf.set_font(font_name, size=11)
-    pdf.cell(200, 8, txt=fix_arabic("Summary:"), ln=True)
+    def check_space(needed=20):
+        nonlocal y
+        if y < margin + 40:
+            pdf.showPage()
+            y = height - margin
+
+    pdf.setFont(font_name, 16)
+    pdf.drawString(margin, y, fix_arabic("Mukhtasar Report"))
+    y -= 35
+
+    pdf.setFont(font_name, 12)
+    pdf.drawString(margin, y, fix_arabic("Summary:"))
+    y -= 20
     
-    pdf.set_font(font_name, size=10)
-    pdf.multi_cell(190, 6, txt=fix_arabic(summary))
-    pdf.ln(5)
-    
-    pdf.set_font(font_name, size=11)
-    pdf.cell(200, 8, txt=fix_arabic("Chat History:"), ln=True)
-    
-    pdf.set_font(font_name, size=10)
+    pdf.setFont(font_name, 10)
+    for line in summary.split('\n'):
+        words = line.split(' ')
+        current_line = ""
+        for word in words:
+            test_line = current_line + " " + word if current_line else word
+            if pdf.stringWidth(fix_arabic(test_line), font_name, 10) < (width - 2 * margin):
+                current_line = test_line
+            else:
+                check_space()
+                pdf.drawString(margin, y, fix_arabic(current_line))
+                y -= 16
+                current_line = word
+        if current_line:
+            check_space()
+            pdf.drawString(margin, y, fix_arabic(current_line))
+            y -= 16
+    y -= 15
+    check_space(30)
+    pdf.setFont(font_name, 12)
+    pdf.drawString(margin, y, fix_arabic("Chat History:"))
+    y -= 20
+
+    pdf.setFont(font_name, 10)
     for m in history:
-        role = "User: " if m['role']=='user' else "Assistant: "
-        content_text = f"{role}{m['content']}"
-        pdf.multi_cell(190, 6, txt=fix_arabic(content_text))
-        pdf.ln(2)
-        
-    return bytes(pdf.output())
+        role_prefix = "User: " if m['role']=='user' else "Assistant: "
+        full_text = role_prefix + m['content']
+        for line in full_text.split('\n'):
+            words = line.split(' ')
+            current_line = ""
+            for word in words:
+                test_line = current_line + " " + word if current_line else word
+                if pdf.stringWidth(fix_arabic(test_line), font_name, 10) < (width - 2 * margin):
+                    current_line = test_line
+                else:
+                    check_space()
+                    pdf.drawString(margin, y, fix_arabic(current_line))
+                    y -= 16
+                    current_line = word
+            if current_line:
+                check_space()
+                pdf.drawString(margin, y, fix_arabic(current_line))
+                y -= 16
+        y -= 10
 
-st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive chat.</p>', unsafe_allow_html=True)
+    pdf.save()
+    bio.seek(0)
+    return bio.getvalue()
+
+st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs and PDFs with interactive chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
 source = st.selectbox("Choose Source Type", ["URL", "PDF", "Text"])
 
@@ -178,7 +217,7 @@ if st.session_state.raw_text and "vectordb" not in st.session_state:
 if "summary" in st.session_state and st.session_state.summary:
     st.markdown("-----")
     st.subheader("Summary:")
-    st.text_area("Summary Text (Click inside to copy):", st.session_state.summary, height=150)
+    st.write(st.session_state.summary)
 
 if st.session_state.get("vectordb"):
     st.markdown("-----")
@@ -187,7 +226,7 @@ if st.session_state.get("vectordb"):
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    for idx, m in enumerate(st.session_state.messages):
+    for m in st.session_state.messages:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
 
