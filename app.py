@@ -137,6 +137,11 @@ if source == "URL":
         soup = BeautifulSoup(res.text, 'html.parser')
         for s in soup(["script", "style", "nav", "footer"]):
             s.decompose()
+        raw_lines = [line.strip() for line in soup.get_text().splitlines() if line.strip()]
+        unique_lines = []
+        for line in raw_lines:
+            if line not in unique_lines:
+                unique_lines.append(line)    
         st.session_state.raw_text = " ".join(soup.get_text().split())
         st.session_state.pop("vectordb", None)
 
