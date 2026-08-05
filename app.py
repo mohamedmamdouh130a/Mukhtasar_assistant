@@ -13,15 +13,16 @@ from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
 from urllib.parse import urlparse, parse_qs
 from youtube_transcript_api import YouTubeTranscriptApi
+import yt_dlp
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fustat:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap');
     
     html, body, [class*="css"] {
-        font-family: 'Fustat', sans-serif !important;
+        font-family: 'Cairo', sans-serif !important;
         font-size: 19px !important;
     }
 
@@ -85,13 +86,16 @@ def export_docx(summary, history):
 def export_pdf(summary, history):
     pdf = UnicodePDF()
     pdf.add_page()
+    
     font_url = "https://github.com/google/fonts/raw/main/ofl/cairo/Cairo-Regular.ttf"
     response = requests.get(font_url)
     font_path = "Cairo-Regular.ttf"
+    
     with open(font_path, "wb") as f:
         f.write(response.content)
     
-    pdf.add_font("Cairo", "", font_file)
+    pdf.add_font("Cairo", "", font_path, uni=True)
+    
     if os.path.exists(font_path):
         os.remove(font_path)
     
@@ -99,23 +103,28 @@ def export_pdf(summary, history):
     pdf.set_font("Cairo", size=12)
     pdf.cell(200, 10, txt="Mukhtasar Report", ln=True, align='C')
     pdf.ln(5)
+    
     pdf.set_font("Cairo", style='B', size=11)
     pdf.cell(200, 8, txt="Summary:", ln=True)
+    
     pdf.set_font("Cairo", size=10)
     pdf.multi_cell(190, 6, txt=pdf.normalize_text(summary))
     pdf.ln(5)
+    
     pdf.set_font("Cairo", style='B', size=11)
     pdf.cell(200, 8, txt="Chat History:", ln=True)
+    
     pdf.set_font("Cairo", size=10)
     for m in history:
         role = "User" if m['role']=='user' else "Assistant"
         pdf.multi_cell(190, 6, txt=f"{role}: {pdf.normalize_text(m['content'])}")
         pdf.ln(2)
+        
     return bytes(pdf.output())
 
-st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive RAG chat.</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs,PDFs and Videos with interactive chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
-source = st.selectbox("Choose Source Type", ["Text", "PDF", "URL", "YouTube Video"])
+source = st.selectbox("Choose Source Type", ["Text", "PDF", "URL", "YouTube Video", "Other Video Platform"])
 
 if "last_source" not in st.session_state:
     st.session_state.last_source = source
@@ -159,17 +168,51 @@ elif source == "YouTube Video":
     if yt_url and st.button("Process YouTube"):
         with st.spinner("Fetching transcript from YouTube..."):
             video_id = extract_video_id(yt_url)
-                if not video_id:
-                    st.error("Invalid YouTube URL!")
-                else:
-                    api = YouTubeTranscriptApi()
-                    fetched = api.fetch(video_id)
-                    full_text = "\n".join([snippet.text for snippet in fetched])
-            
-                    st.session_state.raw_text = full_text
-                    st.session_state.pop("vectordb", None)
-                    st.success("YouTube transcript loaded successfully!")
-                    
+            if not video_id:
+                st.error("Invalid YouTube URL!")
+            else:
+                api = YouTubeTranscriptApi()
+                fetched = api.fetch(video_id)
+                full_text = "\n".join([snippet.text for snippet in fetched])
+                
+                st.session_state.raw_text = full_text
+                st.session_state.pop("vectordb", None)
+                st.success("YouTube transcript loaded successfully!")
+
+elif source == "Other Video Platform":
+    vid_url = st.text_input("Paste Video URL (Facebook, TikTok, etc.):")
+    if vid_url and st.button("Process Video"):
+        with st.spinner("Processing video audio..."):
+            try:
+                audio_path = "temp_audio.m4a"
+                ydl_opts = {
+                    'format': 'bestaudio/best',
+                    'outtmpl': 'temp_audio',
+                    'postprocessors': [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': 'm4a',
+                    }],
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([vid_url])
+                
+                with open(audio_path, "rb") as file:
+                    transcription = client.audio.transcriptions.create(
+                        file=(audio_path, file.read()),
+                        model="whisper-large-v3",
+                        response_format="text"
+                    )
+                
+                st.session_state.raw_text = transcription
+                
+                if os.path.exists(audio_path):
+                    os.remove(audio_path)
+                
+                st.session_state.pop("vectordb", None)
+                st.success("Video processed and transcribed successfully!")
+            except Exception as e:
+                st.error(f"Error processing video: {e}")
+                
 if st.session_state.raw_text and "vectordb" not in st.session_state:
     with st.spinner("Processing..."):
         st.session_state.vectordb = process_text(st.session_state.raw_text)
