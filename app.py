@@ -115,9 +115,9 @@ def export_pdf(summary, history):
         
     return bytes(pdf.output())
 
-st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, PDFs and Media files with interactive chat.</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
-source = st.selectbox("Choose Source Type", ["Text", "PDF", "URL", "Video/Audio File"])
+source = st.radio("Source:", ["URL", "PDF", "Text"])
 
 if "last_source" not in st.session_state:
     st.session_state.last_source = source
@@ -137,16 +137,9 @@ if source == "URL":
     if url and st.button("Process"):
         res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
         soup = BeautifulSoup(res.text, 'html.parser')
-        for s in soup(["script", "style", "nav", "footer", "header"]):
+        for s in soup(["script", "style", "nav", "footer"]):
             s.decompose()
-        
-        raw_lines = [line.strip() for line in soup.get_text().splitlines() if line.strip()]
-        unique_lines = []
-        for line in raw_lines:
-            if line not in unique_lines:
-                unique_lines.append(line)
-                
-        st.session_state.raw_text = " ".join(unique_lines)
+        st.session_state.raw_text = " ".join(soup.get_text().split())
         st.session_state.pop("vectordb", None)
 
 elif source == "PDF":
@@ -163,33 +156,10 @@ elif source == "Text":
         st.session_state.raw_text = text_input
         st.session_state.pop("vectordb", None)
 
-elif source == "Video/Audio File":
-    media_file = st.file_uploader("Upload Video or Audio File", type=["mp4", "mp3", "m4a", "wav", "mov"])
-    if media_file and st.button("Process Media"):
-        with st.spinner("Transcribing media file..."):
-            temp_path = "temp_media_file"
-            with open(temp_path, "wb") as f:
-                f.write(media_file.getbuffer())
-            
-            with open(temp_path, "rb") as file:
-                transcription = client.audio.transcriptions.create(
-                    file=(media_file.name, file.read()),
-                    model="whisper-large-v3",
-                    response_format="text"
-                )
-            
-            st.session_state.raw_text = transcription
-            
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-            
-            st.session_state.pop("vectordb", None)
-            st.success("Media transcribed successfully!")
-
 if st.session_state.raw_text and "vectordb" not in st.session_state:
     with st.spinner("Processing..."):
         st.session_state.vectordb = process_text(st.session_state.raw_text)
-        st.session_state.summary = ask_groq(f"Provide a comprehensive, detailed, and structured summary of the following text, highlighting all key concepts, main points, and important details:\n\n{st.session_state.raw_text[:8000]}", lang)
+        st.session_state.summary = ask_groq(f"Summarize this text concisely:\n\n{st.session_state.raw_text[:3000]}", lang)
         st.session_state.messages = []
 
 if "summary" in st.session_state and st.session_state.summary:
@@ -213,7 +183,7 @@ if st.session_state.get("vectordb"):
         
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                docs = st.session_state.vectordb.similarity_search(q, k=1)
+                docs = st.session_state.vectordb.similarity_search(q, k=2)
                 ctx = "\n\n".join([d.page_content for d in docs])
                 ans = ask_groq(f"Context:\n{ctx}\n\nQuestion: {q}\nAnswer:", lang)
                 st.markdown(ans)
