@@ -43,7 +43,7 @@ def ask_groq(prompt, lang):
                 {"role": "system", "content": f"You are a strict summarization and QA assistant. Answer entirely in {lang}. Rely ONLY and STRICTLY on the provided Context. Do NOT hallucinate, assume, or invent any external facts, names, or events not present in the text."},
                 {"role": "user", "content": prompt}
             ],
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
             temperature=0.1
         )
         return res.choices[0].message.content
