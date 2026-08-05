@@ -3,6 +3,8 @@ requests
 beautifulsoup4
 python-docx
 reportlab
+arabic-reshaper
+python-bidi
 langchain
 langchain-core
 langchain-community
