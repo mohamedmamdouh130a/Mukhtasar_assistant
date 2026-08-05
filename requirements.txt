@@ -2,9 +2,7 @@ streamlit
 requests
 beautifulsoup4
 python-docx
-reportlab
-arabic-reshaper
-python-bidi
+fpdf2
 langchain
 langchain-core
 langchain-community
