@@ -162,33 +162,33 @@ elif source == "Text":
 elif source == "Video":
     vid_url = st.text_input("Paste Video URL (YouTube, Facebook, TikTok, etc.):")
     if vid_url and st.button("Process Video"):
-        with st.spinner("Processing video audio..."):
+        with st.spinner("Processing video audio via Whisper..."):
             audio_path = "temp_audio.m4a"
-                ydl_opts = {
-                    'format': 'bestaudio/best',
-                    'outtmpl': 'temp_audio',
-                    'postprocessors': [{
-                        'key': 'FFmpegExtractAudio',
-                        'preferredcodec': 'm4a',
-                    }],
-                }
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([vid_url])
-                
-                with open(audio_path, "rb") as file:
-                    transcription = client.audio.transcriptions.create(
-                        file=(audio_path, file.read()),
-                        model="whisper-large-v3",
-                        response_format="text"
-                    )
-                
-                st.session_state.raw_text = transcription
-                
-                if os.path.exists(audio_path):
-                    os.remove(audio_path)
-                
-                st.session_state.pop("vectordb", None)
-                st.success("Video processed and transcribed successfully!")
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': 'temp_audio',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'm4a',
+                }],
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([vid_url])
+            
+            with open(audio_path, "rb") as file:
+                transcription = client.audio.transcriptions.create(
+                    file=(audio_path, file.read()),
+                    model="whisper-large-v3",
+                    response_format="text"
+                )
+            
+            st.session_state.raw_text = transcription
+            
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+            
+            st.session_state.pop("vectordb", None)
+            st.success("Video processed and transcribed successfully!")
                 
 if st.session_state.raw_text and "vectordb" not in st.session_state:
     with st.spinner("Processing..."):
