@@ -13,3 +13,4 @@ sentence-transformers
 faiss-cpu
 pypdf
 groq
+fpdf2
