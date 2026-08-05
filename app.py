@@ -59,14 +59,11 @@ def process_text(text):
     chunks = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100).split_documents([Document(page_content=text)])
     return FAISS.from_documents(chunks, get_embeddings())
 
-class UnicodePDF(FPDF):
-    def __init__(self):
-        super().__init__()
-        try:
-            self.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-            self.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
-        except Exception:
-            pass
+class SafePDF(FPDF):
+    def safe_text(self, text):
+        if not isinstance(text, str):
+            return str(text)
+        return text.encode('latin-1', 'ignore').decode('latin-1')
 
 def export_docx(summary, history):
     doc = DocxDocument()
@@ -82,51 +79,24 @@ def export_docx(summary, history):
     return bio
 
 def export_pdf(summary, history):
-    pdf = UnicodePDF()
+    pdf = SafePDF()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    
-    font_family = "DejaVu"
-    try:
-        pdf.set_font(font_family, size=12)
-    except Exception:
-        font_family = "Helvetica"
-        pdf.set_font(font_family, size=12)
-
+    pdf.set_auto_page_break(auto=True, margin=15)    
+    pdf.set_font("Helvetica", size=12)
     pdf.cell(200, 10, txt="Mukhtasar Report", ln=True, align='C')
     pdf.ln(5)
-    
-    try:
-        pdf.set_font(font_family, style='B', size=11)
-    except Exception:
-        pdf.set_font(font_family, size=11)
-        
+    pdf.set_font("Helvetica", style='B', size=11)
     pdf.cell(200, 8, txt="Summary:", ln=True)
-    
-    try:
-        pdf.set_font(font_family, size=10)
-    except Exception:
-        pass
-        
-    pdf.multi_cell(190, 6, txt=str(summary))
+    pdf.set_font("Helvetica", size=10)
+    pdf.multi_cell(190, 6, txt=pdf.safe_text(summary))
     pdf.ln(5)
-    
-    try:
-        pdf.set_font(font_family, style='B', size=11)
-    except Exception:
-        pdf.set_font(font_family, size=11)
-        
-    pdf.cell(200, 8, txt="Chat History:", ln=True)
-    
-    try:
-        pdf.set_font(font_family, size=10)
-    except Exception:
-        pass
-        
+    pdf.set_font("Helvetica", style='B', size=11)
+    pdf.cell(200, 8, txt="Chat History:", ln=True)  
+    pdf.set_font("Helvetica", size=10)
     for m in history:
         role = "User" if m['role']=='user' else "Assistant"
         content_text = f"{role}: {m['content']}"
-        pdf.multi_cell(190, 6, txt=str(content_text))
+        pdf.multi_cell(190, 6, txt=pdf.safe_text(content_text))
         pdf.ln(2)
         
     return bytes(pdf.output())
