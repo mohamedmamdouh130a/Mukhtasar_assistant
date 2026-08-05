@@ -4,14 +4,15 @@ import requests
 from bs4 import BeautifulSoup
 from io import BytesIO
 from docx import Document as DocxDocument
+from fpdf import FPDF
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
+import arabic_reshaper
+from bidi.algorithm import get_display
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
@@ -60,26 +61,25 @@ def process_text(text):
     chunks = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100).split_documents([Document(page_content=text)])
     return FAISS.from_documents(chunks, get_embeddings())
 
-class NumberedCanvas(canvas.Canvas):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.pages = []
+def fix_arabic(text):
+    if not isinstance(text, str):
+        return str(text)
+    try:
+        if any("\u0600" <= c <= "\u06ff" for c in text):
+            reshaped_text = arabic_reshaper.reshape(text)
+            return get_display(reshaped_text)
+        return text
+    except Exception:
+        return text
 
-    def showPage(self):
-        self.pages.append(dict(self.__dict__))
-        self._startPage()
-
-    def save(self):
-        num_pages = len(self.pages)
-        for page in self.pages:
-            self.__dict__.update(page)
-            self.draw_page_number(num_pages)
-            super().showPage()
-        super().save()
-
-    def draw_page_number(self, page_count):
-        self.setFont("Helvetica", 9)
-        self.drawRightString(612 - 40, 30, f"Page {self._pageNumber} of {page_count}")
+class CairoPDF(FPDF):
+    def __init__(self):
+        super().__init__()
+        font_path = "Cairo-Regular.ttf"
+        if os.path.exists(font_path):
+            self.add_font("Cairo", "", font_path, uni=True)
+        else:
+            self.add_font("Cairo", "", "Cairo-Regular.ttf", uni=True)
 
 def export_docx(summary, history):
     doc = DocxDocument()
@@ -95,76 +95,37 @@ def export_docx(summary, history):
     return bio
 
 def export_pdf(summary, history):
-    bio = BytesIO()
-    pdf = canvas.Canvas(bio, pagesize=letter)
+    pdf = CairoPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)    
+    font_name = "Cairo"
+    try:
+        pdf.set_font(font_name, size=12)
+    except Exception:
+        font_name = "Helvetica"
+        pdf.set_font(font_name, size=12)
+
+    pdf.cell(200, 10, txt=fix_arabic("Mukhtasar Report"), ln=True, align='C')
+    pdf.ln(5)
     
-    width, height = letter
-    margin = 40
-    y = height - margin
+    pdf.set_font(font_name, size=11)
+    pdf.cell(200, 8, txt=fix_arabic("Summary:"), ln=True)
     
-    def check_space(needed=20):
-        nonlocal y
-        if y < margin + 40:
-            pdf.showPage()
-            y = height - margin
-
-    pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawString(margin, y, "Mukhtasar Report")
-    y -= 30
-
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(margin, y, "Summary:")
-    y -= 18
+    pdf.set_font(font_name, size=10)
+    pdf.multi_cell(190, 6, txt=fix_arabic(summary))
+    pdf.ln(5)
     
-    pdf.setFont("Helvetica", 10)
-    for line in summary.split('\n'):
-        words = line.split(' ')
-        current_line = ""
-        for word in words:
-            test_line = current_line + " " + word if current_line else word
-            if pdf.stringWidth(test_line, "Helvetica", 10) < (width - 2 * margin):
-                current_line = test_line
-            else:
-                check_space()
-                pdf.drawString(margin, y, current_line)
-                y -= 14
-                current_line = word
-        if current_line:
-            check_space()
-            pdf.drawString(margin, y, current_line)
-            y -= 14
-    y -= 15
-
-    check_space(30)
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(margin, y, "Chat History:")
-    y -= 18
-
-    pdf.setFont("Helvetica", 10)
+    pdf.set_font(font_name, size=11)
+    pdf.cell(200, 8, txt=fix_arabic("Chat History:"), ln=True)
+    
+    pdf.set_font(font_name, size=10)
     for m in history:
         role = "User: " if m['role']=='user' else "Assistant: "
-        full_text = role + m['content']
-        for line in full_text.split('\n'):
-            words = line.split(' ')
-            current_line = ""
-            for word in words:
-                test_line = current_line + " " + word if current_line else word
-                if pdf.stringWidth(test_line, "Helvetica", 10) < (width - 2 * margin):
-                    current_line = test_line
-                else:
-                    check_space()
-                    pdf.drawString(margin, y, current_line)
-                    y -= 14
-                    current_line = word
-            if current_line:
-                check_space()
-                pdf.drawString(margin, y, current_line)
-                y -= 14
-        y -= 8
-
-    pdf.save()
-    bio.seek(0)
-    return bio.getvalue()
+        content_text = f"{role}{m['content']}"
+        pdf.multi_cell(190, 6, txt=fix_arabic(content_text))
+        pdf.ln(2)
+        
+    return bytes(pdf.output())
 
 st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs and PDFs with interactive chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
@@ -215,7 +176,11 @@ if st.session_state.raw_text and "vectordb" not in st.session_state:
 
 if "summary" in st.session_state and st.session_state.summary:
     st.markdown("-----")
-    st.subheader("Summary:")
+    col_s1, col_s2 = st.columns([0.85, 0.15])
+    with col_s1:
+        st.subheader("Summary:")
+    with col_s2:
+        st.copy_button("Copy", st.session_state.summary)
     st.write(st.session_state.summary)
 
 if st.session_state.get("vectordb"):
@@ -225,8 +190,10 @@ if st.session_state.get("vectordb"):
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    for m in st.session_state.messages:
-        with st.chat_message(m["role"]): st.markdown(m["content"])
+    for idx, m in enumerate(st.session_state.messages):
+        with st.chat_message(m["role"]):
+            st.markdown(m["content"])
+            st.copy_button("Copy", m["content"], key=f"copy_msg_{idx}")
 
     if q := st.chat_input("Ask a question..."):
         st.session_state.messages.append({"role": "user", "content": q})
