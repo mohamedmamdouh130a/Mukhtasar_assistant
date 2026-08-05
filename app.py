@@ -162,11 +162,17 @@ elif source == "Text":
 elif source == "Video":
     vid_url = st.text_input("Paste Video URL (YouTube, Facebook, TikTok, etc.):")
     if vid_url and st.button("Process Video"):
-        with st.spinner("Processing video audio via Whisper..."):
+        with st.spinner("Processing video audio..."):
             audio_path = "temp_audio.m4a"
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'outtmpl': 'temp_audio',
+                'noplaylist': True,
+                'geo_bypass': True,
+                'nocheckcertificate': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                },
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'm4a',
