@@ -1,7 +1,6 @@
 import os
 import streamlit as st
 import requests
-import arabic_reshaper
 from bs4 import BeautifulSoup
 from io import BytesIO
 from docx import Document as DocxDocument
@@ -11,11 +10,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
-from bidi.algorithm import get_display
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT, TA_CENTER
+from reportlab.pdfgen import canvas
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
@@ -64,16 +60,26 @@ def process_text(text):
     chunks = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100).split_documents([Document(page_content=text)])
     return FAISS.from_documents(chunks, get_embeddings())
 
-def fix_arabic(text):
-    if not isinstance(text, str):
-        return str(text)
-    try:
-        if any("\u0600" <= c <= "\u06ff" for c in text):
-            reshaped_text = arabic_reshaper.reshape(text)
-            return get_display(reshaped_text)
-        return text
-    except Exception:
-        return text
+class NumberedCanvas(canvas.Canvas):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pages = []
+
+    def showPage(self):
+        self.pages.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self.pages)
+        for page in self.pages:
+            self.__dict__.update(page)
+            self.draw_page_number(num_pages)
+            super().showPage()
+        super().save()
+
+    def draw_page_number(self, page_count):
+        self.setFont("Helvetica", 9)
+        self.drawRightString(612 - 40, 30, f"Page {self._pageNumber} of {page_count}")
 
 def export_docx(summary, history):
     doc = DocxDocument()
@@ -90,45 +96,73 @@ def export_docx(summary, history):
 
 def export_pdf(summary, history):
     bio = BytesIO()
-    doc = SimpleDocTemplate(bio, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
-    styles = getSampleStyleSheet()
-    ar_style = ParagraphStyle(
-        'ArabicStyle',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=11,
-        leading=18,
-        alignment=TA_RIGHT
-    )
+    pdf = canvas.Canvas(bio, pagesize=letter)
     
-    title_style = ParagraphStyle(
-        'TitleStyle',
-        parent=styles['Heading1'],
-        fontName='Helvetica',
-        fontSize=16,
-        leading=22,
-        alignment=TA_CENTER
-    )
+    width, height = letter
+    margin = 40
+    y = height - margin
+    
+    def check_space(needed=20):
+        nonlocal y
+        if y < margin + 40:
+            pdf.showPage()
+            y = height - margin
 
-    story = []
-    story.append(Paragraph("Mukhtasar Report", title_style))
-    story.append(Spacer(1, 15))
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(margin, y, "Mukhtasar Report")
+    y -= 30
+
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(margin, y, "Summary:")
+    y -= 18
     
-    story.append(Paragraph(fix_arabic("Summary:"), ar_style))
-    story.append(Spacer(1, 5))
-    story.append(Paragraph(fix_arabic(summary.replace('\n', '<br/>')), ar_style))
-    story.append(Spacer(1, 15))
-    
-    story.append(Paragraph(fix_arabic("Chat History:"), ar_style))
-    story.append(Spacer(1, 5))
-    
+    pdf.setFont("Helvetica", 10)
+    for line in summary.split('\n'):
+        words = line.split(' ')
+        current_line = ""
+        for word in words:
+            test_line = current_line + " " + word if current_line else word
+            if pdf.stringWidth(test_line, "Helvetica", 10) < (width - 2 * margin):
+                current_line = test_line
+            else:
+                check_space()
+                pdf.drawString(margin, y, current_line)
+                y -= 14
+                current_line = word
+        if current_line:
+            check_space()
+            pdf.drawString(margin, y, current_line)
+            y -= 14
+    y -= 15
+
+    check_space(30)
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(margin, y, "Chat History:")
+    y -= 18
+
+    pdf.setFont("Helvetica", 10)
     for m in history:
-        role = "User:" if m['role']=='user' else "Assistant:"
-        content = f"{role} {m['content']}"
-        story.append(Paragraph(fix_arabic(content.replace('\n', '<br/>')), ar_style))
-        story.append(Spacer(1, 8))
-        
-    doc.build(story)
+        role = "User: " if m['role']=='user' else "Assistant: "
+        full_text = role + m['content']
+        for line in full_text.split('\n'):
+            words = line.split(' ')
+            current_line = ""
+            for word in words:
+                test_line = current_line + " " + word if current_line else word
+                if pdf.stringWidth(test_line, "Helvetica", 10) < (width - 2 * margin):
+                    current_line = test_line
+                else:
+                    check_space()
+                    pdf.drawString(margin, y, current_line)
+                    y -= 14
+                    current_line = word
+            if current_line:
+                check_space()
+                pdf.drawString(margin, y, current_line)
+                y -= 14
+        y -= 8
+
+    pdf.save()
     bio.seek(0)
     return bio.getvalue()
 
