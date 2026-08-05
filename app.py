@@ -162,24 +162,18 @@ elif source == "Text":
 elif source == "Video":
     vid_url = st.text_input("Paste Video URL (YouTube, Facebook, TikTok, etc.):")
     if vid_url and st.button("Process Video"):
-        with st.spinner("Processing video audio..."):
-            audio_path = "temp_audio.m4a"
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'outtmpl': 'temp_audio',
-                'noplaylist': True,
-                'geo_bypass': True,
-                'nocheckcertificate': True,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                },
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'm4a',
-                }],
-            }
+        with st.spinner("Extracting and transcribing video audio..."):
+            ydl_opts = {'format': 'bestaudio/best', 'noplaylist': True}
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([vid_url])
+                info_dict = ydl.extract_info(vid_url, download=False)
+                audio_url = info_dict.get('url')
+            
+            res = requests.get(audio_url, stream=True, headers={'User-Agent': 'Mozilla/5.0'})
+            audio_path = "temp_audio.m4a"
+            with open(audio_path, "wb") as f:
+                for chunk in res.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
             
             with open(audio_path, "rb") as file:
                 transcription = client.audio.transcriptions.create(
@@ -189,7 +183,6 @@ elif source == "Video":
                 )
             
             st.session_state.raw_text = transcription
-            
             if os.path.exists(audio_path):
                 os.remove(audio_path)
             
