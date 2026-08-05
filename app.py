@@ -13,9 +13,11 @@ from groq import Groq
 import arabic_reshaper
 from bidi.algorithm import get_display
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.enums import TA_RIGHT, TA_LEFT
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
@@ -90,9 +92,9 @@ def export_docx(summary, history):
 
 def export_pdf(summary, history):
     bio = BytesIO()
-    pdf = canvas.Canvas(bio, pagesize=letter)    
-    font_path = "Cairo-Regular.ttf"
+    doc = SimpleDocTemplate(bio, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)    
     font_name = "Helvetica"
+    font_path = "Cairo-Regular.ttf"
     if os.path.exists(font_path):
         try:
             pdfmetrics.registerFont(TTFont('CairoLocal', font_path))
@@ -100,70 +102,51 @@ def export_pdf(summary, history):
         except Exception:
             pass
 
-    width, height = letter
-    margin = 40
-    y = height - margin
+    styles = getSampleStyleSheet()    
+    title_style = ParagraphStyle(
+        'PDFTitle',
+        parent=styles['Heading1'],
+        fontName=font_name,
+        fontSize=16,
+        leading=22,
+        alignment=TA_LEFT
+    )
     
-    def check_space(needed=20):
-        nonlocal y
-        if y < margin + 40:
-            pdf.showPage()
-            y = height - margin
-
-    pdf.setFont(font_name, 16)
-    pdf.drawString(margin, y, fix_arabic("Mukhtasar Report"))
-    y -= 35
-
-    pdf.setFont(font_name, 12)
-    pdf.drawString(margin, y, fix_arabic("Summary:"))
-    y -= 20
+    heading_style = ParagraphStyle(
+        'PDFHeading',
+        parent=styles['Heading2'],
+        fontName=font_name,
+        fontSize=12,
+        leading=18,
+        alignment=TA_LEFT
+    )
     
-    pdf.setFont(font_name, 10)
-    for line in summary.split('\n'):
-        words = line.split(' ')
-        current_line = ""
-        for word in words:
-            test_line = current_line + " " + word if current_line else word
-            if pdf.stringWidth(fix_arabic(test_line), font_name, 10) < (width - 2 * margin):
-                current_line = test_line
-            else:
-                check_space()
-                pdf.drawString(margin, y, fix_arabic(current_line))
-                y -= 16
-                current_line = word
-        if current_line:
-            check_space()
-            pdf.drawString(margin, y, fix_arabic(current_line))
-            y -= 16
-    y -= 15
-    check_space(30)
-    pdf.setFont(font_name, 12)
-    pdf.drawString(margin, y, fix_arabic("Chat History:"))
-    y -= 20
+    body_style = ParagraphStyle(
+        'PDFBody',
+        parent=styles['Normal'],
+        fontName=font_name,
+        fontSize=10,
+        leading=16,
+        alignment=TA_RIGHT
+    )
 
-    pdf.setFont(font_name, 10)
+    story = []    
+    story.append(Paragraph("Mukhtasar Report", title_style))
+    story.append(Spacer(1, 15))    
+    story.append(Paragraph("Summary:", heading_style))
+    story.append(Spacer(1, 5))
+    story.append(Paragraph(fix_arabic(summary.replace('\n', '<br/>')), body_style))
+    story.append(Spacer(1, 15))
+    story.append(Paragraph("Chat History:", heading_style))
+    story.append(Spacer(1, 5))
+    
     for m in history:
-        role_prefix = "User: " if m['role']=='user' else "Assistant: "
-        full_text = role_prefix + m['content']
-        for line in full_text.split('\n'):
-            words = line.split(' ')
-            current_line = ""
-            for word in words:
-                test_line = current_line + " " + word if current_line else word
-                if pdf.stringWidth(fix_arabic(test_line), font_name, 10) < (width - 2 * margin):
-                    current_line = test_line
-                else:
-                    check_space()
-                    pdf.drawString(margin, y, fix_arabic(current_line))
-                    y -= 16
-                    current_line = word
-            if current_line:
-                check_space()
-                pdf.drawString(margin, y, fix_arabic(current_line))
-                y -= 16
-        y -= 10
-
-    pdf.save()
+        role = "User: " if m['role']=='user' else "Assistant: "
+        full_content = role + m['content']
+        story.append(Paragraph(fix_arabic(full_content.replace('\n', '<br/>')), body_style))
+        story.append(Spacer(1, 8))
+        
+    doc.build(story)
     bio.seek(0)
     return bio.getvalue()
 
