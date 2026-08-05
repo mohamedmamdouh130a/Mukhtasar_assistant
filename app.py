@@ -61,7 +61,7 @@ def process_text(text):
 
 class UnicodePDF(FPDF):
     def normalize_text(self, text):
-        return text
+        return text.encode('latin-1', 'replace').decode('latin-1') if isinstance(text, str) else text
 
 def export_docx(summary, history):
     doc = DocxDocument()
@@ -79,35 +79,60 @@ def export_docx(summary, history):
 def export_pdf(summary, history):
     pdf = UnicodePDF()
     pdf.add_page()
-    
-    font_url = "https://github.com/google/fonts/raw/main/ofl/cairo/Cairo%5Bslnt%2Cwght%5D.ttf"
-    response = requests.get(font_url)
-    font_path = "Cairo-Regular.ttf"
-    
-    with open(font_path, "wb") as f:
-        f.write(response.content)
-    
-    pdf.add_font("Cairo", "", font_path, uni=True)
-    
-    if os.path.exists(font_path):
-        os.remove(font_path)
-    
     pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Cairo", size=12)
+    
+    # محاولة إضافة وتطبيق خط Cairo، وإذا حدث أي خطأ يتم استخدام خط Arial تفادياً لأي توقف
+    font_loaded = False
+    font_url = "https://github.com/google/fonts/raw/main/ofl/cairo/Cairo%5Bslnt%2Cwght%5D.ttf"
+    try:
+        response = requests.get(font_url, timeout=5)
+        if response.status_code == 200:
+            font_path = "Cairo.ttf"
+            with open(font_path, "wb") as f:
+                f.write(response.content)
+            pdf.add_font("Cairo", "", font_path, uni=True)
+            if os.path.exists(font_path):
+                os.remove(font_path)
+            font_loaded = True
+    except Exception:
+        pass
+
+    # كتابة محتوى الـ PDF بأمان تام
+    if font_loaded:
+        pdf.set_font("Cairo", size=12)
+    else:
+        pdf.set_font("Arial", size=12)
+
     pdf.cell(200, 10, txt="Mukhtasar Report", ln=True, align='C')
     pdf.ln(5)
     
-    pdf.set_font("Cairo", style='B', size=11)
+    if font_loaded:
+        pdf.set_font("Cairo", style='B', size=11)
+    else:
+        pdf.set_font("Arial", style='B', size=11)
+        
     pdf.cell(200, 8, txt="Summary:", ln=True)
     
-    pdf.set_font("Cairo", size=10)
+    if font_loaded:
+        pdf.set_font("Cairo", size=10)
+    else:
+        pdf.set_font("Arial", size=10)
+        
     pdf.multi_cell(190, 6, txt=pdf.normalize_text(summary))
     pdf.ln(5)
     
-    pdf.set_font("Cairo", style='B', size=11)
+    if font_loaded:
+        pdf.set_font("Cairo", style='B', size=11)
+    else:
+        pdf.set_font("Arial", style='B', size=11)
+        
     pdf.cell(200, 8, txt="Chat History:", ln=True)
     
-    pdf.set_font("Cairo", size=10)
+    if font_loaded:
+        pdf.set_font("Cairo", size=10)
+    else:
+        pdf.set_font("Arial", size=10)
+        
     for m in history:
         role = "User" if m['role']=='user' else "Assistant"
         pdf.multi_cell(190, 6, txt=f"{role}: {pdf.normalize_text(m['content'])}")
@@ -115,7 +140,7 @@ def export_pdf(summary, history):
         
     return bytes(pdf.output())
 
-st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs and PDFs with interactive chat.</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive RAG chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
 source = st.selectbox("Choose Source Type", ["URL", "PDF", "Text"])
 
