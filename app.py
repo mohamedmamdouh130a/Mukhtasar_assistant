@@ -1,16 +1,21 @@
 import os
 import streamlit as st
 import requests
+import arabic_reshaper
 from bs4 import BeautifulSoup
 from io import BytesIO
 from docx import Document as DocxDocument
-from fpdf import FPDF
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
+from bidi.algorithm import get_display
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_RIGHT, TA_CENTER
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
@@ -41,11 +46,11 @@ def ask_groq(prompt, lang):
     try:
         res = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": f"Answer entirely in {lang}."},
+                {"role": "system", "content": f"You are a strict summarization and QA assistant. Answer entirely in {lang}. Rely ONLY and STRICTLY on the provided Context. Do NOT hallucinate, assume, or invent any external facts, names, or events not present in the text."},
                 {"role": "user", "content": prompt}
             ],
             model="llama-3.3-70b-versatile",
-            temperature=0.3
+            temperature=0.1
         )
         return res.choices[0].message.content
     except Exception as e:
@@ -59,11 +64,16 @@ def process_text(text):
     chunks = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100).split_documents([Document(page_content=text)])
     return FAISS.from_documents(chunks, get_embeddings())
 
-class SafePDF(FPDF):
-    def safe_text(self, text):
-        if not isinstance(text, str):
-            return str(text)
-        return text.encode('latin-1', 'ignore').decode('latin-1')
+def fix_arabic(text):
+    if not isinstance(text, str):
+        return str(text)
+    try:
+        if any("\u0600" <= c <= "\u06ff" for c in text):
+            reshaped_text = arabic_reshaper.reshape(text)
+            return get_display(reshaped_text)
+        return text
+    except Exception:
+        return text
 
 def export_docx(summary, history):
     doc = DocxDocument()
@@ -79,27 +89,48 @@ def export_docx(summary, history):
     return bio
 
 def export_pdf(summary, history):
-    pdf = SafePDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)    
-    pdf.set_font("Helvetica", size=12)
-    pdf.cell(200, 10, txt="Mukhtasar Report", ln=True, align='C')
-    pdf.ln(5)
-    pdf.set_font("Helvetica", style='B', size=11)
-    pdf.cell(200, 8, txt="Summary:", ln=True)
-    pdf.set_font("Helvetica", size=10)
-    pdf.multi_cell(190, 6, txt=pdf.safe_text(summary))
-    pdf.ln(5)
-    pdf.set_font("Helvetica", style='B', size=11)
-    pdf.cell(200, 8, txt="Chat History:", ln=True)  
-    pdf.set_font("Helvetica", size=10)
+    bio = BytesIO()
+    doc = SimpleDocTemplate(bio, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    styles = getSampleStyleSheet()
+    ar_style = ParagraphStyle(
+        'ArabicStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=11,
+        leading=18,
+        alignment=TA_RIGHT
+    )
+    
+    title_style = ParagraphStyle(
+        'TitleStyle',
+        parent=styles['Heading1'],
+        fontName='Helvetica',
+        fontSize=16,
+        leading=22,
+        alignment=TA_CENTER
+    )
+
+    story = []
+    story.append(Paragraph("Mukhtasar Report", title_style))
+    story.append(Spacer(1, 15))
+    
+    story.append(Paragraph(fix_arabic("Summary:"), ar_style))
+    story.append(Spacer(1, 5))
+    story.append(Paragraph(fix_arabic(summary.replace('\n', '<br/>')), ar_style))
+    story.append(Spacer(1, 15))
+    
+    story.append(Paragraph(fix_arabic("Chat History:"), ar_style))
+    story.append(Spacer(1, 5))
+    
     for m in history:
-        role = "User" if m['role']=='user' else "Assistant"
-        content_text = f"{role}: {m['content']}"
-        pdf.multi_cell(190, 6, txt=pdf.safe_text(content_text))
-        pdf.ln(2)
+        role = "User:" if m['role']=='user' else "Assistant:"
+        content = f"{role} {m['content']}"
+        story.append(Paragraph(fix_arabic(content.replace('\n', '<br/>')), ar_style))
+        story.append(Spacer(1, 8))
         
-    return bytes(pdf.output())
+    doc.build(story)
+    bio.seek(0)
+    return bio.getvalue()
 
 st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs and PDFs with interactive chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
@@ -145,7 +176,7 @@ elif source == "Text":
 if st.session_state.raw_text and "vectordb" not in st.session_state:
     with st.spinner("Processing..."):
         st.session_state.vectordb = process_text(st.session_state.raw_text)
-        st.session_state.summary = ask_groq(f"Summarize this text concisely:\n\n{st.session_state.raw_text[:3000]}", lang)
+        st.session_state.summary = ask_groq(f"Provide a concise, strict summary based ONLY on this text:\n\n{st.session_state.raw_text[:3000]}", lang)
         st.session_state.messages = []
 
 if "summary" in st.session_state and st.session_state.summary:
@@ -171,7 +202,7 @@ if st.session_state.get("vectordb"):
             with st.spinner("Thinking..."):
                 docs = st.session_state.vectordb.similarity_search(q, k=2)
                 ctx = "\n\n".join([d.page_content for d in docs])
-                ans = ask_groq(f"Context:\n{ctx}\n\nQuestion: {q}\nAnswer:", lang)
+                ans = ask_groq(f"Answer the question strictly and solely based on the provided Context. Do not invent any outside facts.\n\nContext:\n{ctx}\n\nQuestion: {q}\nAnswer:", lang)
                 st.markdown(ans)
         st.session_state.messages.append({"role": "assistant", "content": ans})
 
