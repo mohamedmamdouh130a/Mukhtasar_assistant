@@ -15,6 +15,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.enums import TA_RIGHT, TA_LEFT, TA_CENTER
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
@@ -79,56 +80,57 @@ def export_docx(summary, history):
 def export_pdf(summary, history):
     bio = BytesIO()
     doc = SimpleDocTemplate(bio, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
-    
-    font_url = "https://github.com/google/fonts/raw/main/ofl/cairo/Cairo-Regular.ttf"
     font_path = "Cairo-Regular.ttf"
+    font_registered = False
+    
     try:
-        response = requests.get(font_url, timeout=5)
+        font_url = "https://github.com/google/fonts/raw/main/ofl/cairo/Cairo-Regular.ttf"
+        response = requests.get(font_url, timeout=10)
         if response.status_code == 200:
             with open(font_path, "wb") as f:
                 f.write(response.content)
-            pdfmetrics.registerFont(TTFont('Cairo', font_path))
-            font_name = 'Cairo'
-        else:
-            font_name = 'Helvetica'
+            pdfmetrics.registerFont(TTFont('CairoCustom', font_path))
+            font_registered = True
     except Exception:
-        font_name = 'Helvetica'
+        pass
 
-    styles = getSampleStyleSheet()
-    custom_style = ParagraphStyle(
-        'CairoStyle',
+    active_font = 'CairoCustom' if font_registered else 'Helvetica'
+
+    styles = getSampleStyleSheet()    
+    ar_style = ParagraphStyle(
+        'ArabicStyle',
         parent=styles['Normal'],
-        fontName=font_name,
+        fontName=active_font,
         fontSize=11,
-        leading=16,
-        alignment=2
+        leading=18,
+        alignment=TA_RIGHT
     )
     
     title_style = ParagraphStyle(
-        'CairoTitle',
+        'TitleStyle',
         parent=styles['Heading1'],
-        fontName=font_name,
+        fontName=active_font,
         fontSize=16,
         leading=22,
-        alignment=1
+        alignment=TA_CENTER
     )
 
     story = []
     story.append(Paragraph("Mukhtasar Report", title_style))
     story.append(Spacer(1, 15))
     
-    story.append(Paragraph("<b>Summary:</b>", custom_style))
+    story.append(Paragraph("<b>Summary:</b>", ar_style))
     story.append(Spacer(1, 5))
-    story.append(Paragraph(summary.replace('\n', '<br/>'), custom_style))
+    story.append(Paragraph(summary.replace('\n', '<br/>'), ar_style))
     story.append(Spacer(1, 15))
     
-    story.append(Paragraph("<b>Chat History:</b>", custom_style))
+    story.append(Paragraph("<b>Chat History:</b>", ar_style))
     story.append(Spacer(1, 5))
     
     for m in history:
         role = "(User):" if m['role']=='user' else "(Assistant):"
         content = m['content'].replace('\n', '<br/>')
-        story.append(Paragraph(f"<b>{role}</b> {content}", custom_style))
+        story.append(Paragraph(f"<b>{role}</b> {content}", ar_style))
         story.append(Spacer(1, 8))
         
     doc.build(story)
