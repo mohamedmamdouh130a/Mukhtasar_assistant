@@ -11,8 +11,6 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
-from urllib.parse import urlparse, parse_qs
-from youtube_transcript_api import YouTubeTranscriptApi
 import yt_dlp
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
@@ -62,13 +60,6 @@ def process_text(text):
 class UnicodePDF(FPDF):
     def normalize_text(self, text):
         return text
-
-def extract_video_id(url: str):
-    parsed = urlparse(url)
-    qs = parse_qs(parsed.query)
-    if not qs.get('v'):
-        return ""
-    return qs.get('v')[0]
     
 def export_docx(summary, history):
     doc = DocxDocument()
@@ -122,9 +113,9 @@ def export_pdf(summary, history):
         
     return bytes(pdf.output())
 
-st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs,PDFs and Videos with interactive chat.</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, PDFs and Videos with interactive chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
-source = st.selectbox("Choose Source Type", ["Text", "PDF", "URL", "YouTube Video", "Other Video Platform"])
+source = st.selectbox("Choose Source Type", ["Text", "PDF", "URL", "Video"])
 
 if "last_source" not in st.session_state:
     st.session_state.last_source = source
@@ -163,24 +154,8 @@ elif source == "Text":
         st.session_state.raw_text = text_input
         st.session_state.pop("vectordb", None)
 
-elif source == "YouTube Video":
-    yt_url = st.text_input("Paste YouTube URL:")
-    if yt_url and st.button("Process YouTube"):
-        with st.spinner("Fetching transcript from YouTube..."):
-            video_id = extract_video_id(yt_url)
-            if not video_id:
-                st.error("Invalid YouTube URL!")
-            else:
-                api = YouTubeTranscriptApi()
-                fetched = api.fetch(video_id)
-                full_text = "\n".join([snippet.text for snippet in fetched])
-                
-                st.session_state.raw_text = full_text
-                st.session_state.pop("vectordb", None)
-                st.success("YouTube transcript loaded successfully!")
-
-elif source == "Other Video Platform":
-    vid_url = st.text_input("Paste Video URL (Facebook, TikTok, etc.):")
+elif source == "Video":
+    vid_url = st.text_input("Paste Video URL (YouTube, Facebook, TikTok, etc.):")
     if vid_url and st.button("Process Video"):
         with st.spinner("Processing video audio..."):
             try:
