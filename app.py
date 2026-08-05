@@ -166,7 +166,7 @@ elif source == "Text":
 elif source == "Video/Audio File":
     media_file = st.file_uploader("Upload Video or Audio File", type=["mp4", "mp3", "m4a", "wav", "mov"])
     if media_file and st.button("Process Media"):
-        with st.spinner("Transcribing media file via Whisper..."):
+        with st.spinner("Transcribing media file..."):
             temp_path = "temp_media_file"
             with open(temp_path, "wb") as f:
                 f.write(media_file.getbuffer())
@@ -213,7 +213,7 @@ if st.session_state.get("vectordb"):
         
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                docs = st.session_state.vectordb.similarity_search(q, k=2)
+                docs = st.session_state.vectordb.similarity_search(q, k=1)
                 ctx = "\n\n".join([d.page_content for d in docs])
                 ans = ask_groq(f"Context:\n{ctx}\n\nQuestion: {q}\nAnswer:", lang)
                 st.markdown(ans)
