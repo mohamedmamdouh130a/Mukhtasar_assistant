@@ -11,7 +11,6 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
-import yt_dlp
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
@@ -60,7 +59,7 @@ def process_text(text):
 class UnicodePDF(FPDF):
     def normalize_text(self, text):
         return text
-    
+
 def export_docx(summary, history):
     doc = DocxDocument()
     doc.add_heading('Mukhtasar Report', 0)
@@ -113,9 +112,9 @@ def export_pdf(summary, history):
         
     return bytes(pdf.output())
 
-st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, PDFs and Videos with interactive chat.</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, PDFs and Media files with interactive chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
-source = st.selectbox("Choose Source Type", ["Text", "PDF", "URL", "Video"])
+source = st.selectbox("Choose Source Type", ["Text", "PDF", "URL", "Video/Audio File"])
 
 if "last_source" not in st.session_state:
     st.session_state.last_source = source
@@ -161,48 +160,29 @@ elif source == "Text":
         st.session_state.raw_text = text_input
         st.session_state.pop("vectordb", None)
 
-elif source == "Video":
-    vid_url = st.text_input("Paste Video URL (YouTube, Facebook, TikTok, etc.):")
-    if vid_url and st.button("Process Video"):
-        with st.spinner("Processing video audio via Whisper..."):
-            audio_path = "temp_audio.mp3"
-            ydl_opts = {
-                'format': 'bestaudio',
-                'outtmpl': 'temp_audio',
-                'noplaylist': True,
-            }
+elif source == "Video/Audio File":
+    media_file = st.file_uploader("Upload Video or Audio File", type=["mp4", "mp3", "m4a", "wav", "mov"])
+    if media_file and st.button("Process Media"):
+        with st.spinner("Transcribing media file via Whisper..."):
+            temp_path = "temp_media_file"
+            with open(temp_path, "wb") as f:
+                f.write(media_file.getbuffer())
             
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(vid_url, download=True)
-                filename = ydl.prepare_filename(info)
-                base, ext = os.path.splitext(filename)
-                if os.path.exists(base + ".webm"):
-                    audio_path = base + ".webm"
-                elif os.path.exists(base + ".m4a"):
-                    audio_path = base + ".m4a"
-                elif os.path.exists(base + ".mp3"):
-                    audio_path = base + ".mp3"
-                else:
-                    audio_path = filename
-
-            with open(audio_path, "rb") as file:
+            with open(temp_path, "rb") as file:
                 transcription = client.audio.transcriptions.create(
-                    file=(audio_path, file.read()),
+                    file=(media_file.name, file.read()),
                     model="whisper-large-v3",
                     response_format="text"
                 )
             
             st.session_state.raw_text = transcription
             
-            if os.path.exists(audio_path):
-                os.remove(audio_path)
-            for ext_type in ['.webm', '.m4a', '.mp3', '.opus', '.part']:
-                if os.path.exists("temp_audio" + ext_type):
-                    os.remove("temp_audio" + ext_type)
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
             
             st.session_state.pop("vectordb", None)
-            st.success("Video processed and transcribed successfully!")
-                
+            st.success("Media transcribed successfully!")
+
 if st.session_state.raw_text and "vectordb" not in st.session_state:
     with st.spinner("Processing..."):
         st.session_state.vectordb = process_text(st.session_state.raw_text)
