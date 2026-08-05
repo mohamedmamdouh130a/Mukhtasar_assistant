@@ -38,15 +38,18 @@ api_key = st.secrets.get("GROQ_API_KEY")
 client = Groq(api_key=api_key)
 
 def ask_groq(prompt, lang):
-    res = client.chat.completions.create(
-        messages=[
-            {"role": "system", "content": f"Answer entirely in {lang}."},
-            {"role": "user", "content": prompt}
-        ],
-        model="llama-3.3-70b-versatile",
-        temperature=0.3
-    )
-    return res.choices[0].message.content
+    try:
+        res = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": f"Answer entirely in {lang}."},
+                {"role": "user", "content": prompt}
+            ],
+            model="llama-3.3-70b-versatile",
+            temperature=0.3
+        )
+        return res.choices[0].message.content
+    except Exception as e:
+        return f"Error communicating with Groq API: {e}"
 
 @st.cache_resource
 def get_embeddings():
@@ -186,7 +189,7 @@ elif source == "Video/Audio File":
 if st.session_state.raw_text and "vectordb" not in st.session_state:
     with st.spinner("Processing..."):
         st.session_state.vectordb = process_text(st.session_state.raw_text)
-        st.session_state.summary = ask_groq(f"Provide a comprehensive, detailed, and structured summary of the following text, highlighting all key concepts, main points, and important details:\n\n{st.session_state.raw_text[:10000]}", lang)
+        st.session_state.summary = ask_groq(f"Provide a comprehensive, detailed, and structured summary of the following text, highlighting all key concepts, main points, and important details:\n\n{st.session_state.raw_text[:8000]}", lang)
         st.session_state.messages = []
 
 if "summary" in st.session_state and st.session_state.summary:
@@ -210,7 +213,7 @@ if st.session_state.get("vectordb"):
         
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                docs = st.session_state.vectordb.similarity_search(q, k=3)
+                docs = st.session_state.vectordb.similarity_search(q, k=2)
                 ctx = "\n\n".join([d.page_content for d in docs])
                 ans = ask_groq(f"Context:\n{ctx}\n\nQuestion: {q}\nAnswer:", lang)
                 st.markdown(ans)
