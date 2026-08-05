@@ -135,9 +135,16 @@ if source == "URL":
     if url and st.button("Process"):
         res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
         soup = BeautifulSoup(res.text, 'html.parser')
-        for s in soup(["script", "style", "nav", "footer"]):
+        for s in soup(["script", "style", "nav", "footer", "header"]):
             s.decompose()
-        st.session_state.raw_text = " ".join(soup.get_text().split())
+        
+        raw_lines = [line.strip() for line in soup.get_text().splitlines() if line.strip()]
+        unique_lines = []
+        for line in raw_lines:
+            if line not in unique_lines:
+                unique_lines.append(line)
+                
+        st.session_state.raw_text = " ".join(unique_lines)
         st.session_state.pop("vectordb", None)
 
 elif source == "PDF":
@@ -158,35 +165,41 @@ elif source == "Video":
     vid_url = st.text_input("Paste Video URL (YouTube, Facebook, TikTok, etc.):")
     if vid_url and st.button("Process Video"):
         with st.spinner("Processing video audio..."):
-            try:
-                audio_path = "temp_audio.m4a"
-                ydl_opts = {
-                    'format': 'bestaudio/best',
-                    'outtmpl': 'temp_audio',
-                    'postprocessors': [{
-                        'key': 'FFmpegExtractAudio',
-                        'preferredcodec': 'm4a',
-                    }],
-                }
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([vid_url])
-                
-                with open(audio_path, "rb") as file:
-                    transcription = client.audio.transcriptions.create(
-                        file=(audio_path, file.read()),
-                        model="whisper-large-v3",
-                        response_format="text"
-                    )
-                
-                st.session_state.raw_text = transcription
-                
-                if os.path.exists(audio_path):
-                    os.remove(audio_path)
-                
-                st.session_state.pop("vectordb", None)
-                st.success("Video processed and transcribed successfully!")
-            except Exception as e:
-                st.error(f"Error processing video: {e}")
+            audio_path = "temp_audio.m4a"
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': 'temp_audio',
+                'noplaylist': True,
+                'geo_bypass': True,
+                'nocheckcertificate': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                },
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'm4a',
+                }],
+            }
+            # if os.path.exists("cookies.txt"):
+            #     ydl_opts['cookiefile'] = 'cookies.txt'
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([vid_url])
+            
+            with open(audio_path, "rb") as file:
+                transcription = client.audio.transcriptions.create(
+                    file=(audio_path, file.read()),
+                    model="whisper-large-v3",
+                    response_format="text"
+                )
+            
+            st.session_state.raw_text = transcription
+            
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+            
+            st.session_state.pop("vectordb", None)
+            st.success("Video processed and transcribed successfully!")
                 
 if st.session_state.raw_text and "vectordb" not in st.session_state:
     with st.spinner("Processing..."):
