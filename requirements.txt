@@ -2,7 +2,7 @@ streamlit
 requests
 beautifulsoup4
 python-docx
-fpdf2
+reportlab
 langchain
 langchain-core
 langchain-community
