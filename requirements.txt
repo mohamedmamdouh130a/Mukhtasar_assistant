@@ -12,3 +12,4 @@ pypdf
 fpdf2
 python-docx
 youtube-transcript-api
+yt_dlp
