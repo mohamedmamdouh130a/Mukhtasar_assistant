@@ -4,18 +4,13 @@ import requests
 from bs4 import BeautifulSoup
 from io import BytesIO
 from docx import Document as DocxDocument
+from fpdf import FPDF
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.enums import TA_RIGHT, TA_LEFT, TA_CENTER
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
@@ -64,6 +59,14 @@ def process_text(text):
     chunks = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100).split_documents([Document(page_content=text)])
     return FAISS.from_documents(chunks, get_embeddings())
 
+class SimplePDF(FPDF):
+    def normalize_text(self, text):
+        if not isinstance(text, str):
+            return str(text)
+        if any("\u0600" <= c <= "\u06ff" for c in text):
+            return text[::-1].encode('latin-1', 'replace').decode('latin-1')
+        return text.encode('latin-1', 'replace').decode('latin-1')
+
 def export_docx(summary, history):
     doc = DocxDocument()
     doc.add_heading('Mukhtasar Report', 0)
@@ -78,68 +81,32 @@ def export_docx(summary, history):
     return bio
 
 def export_pdf(summary, history):
-    bio = BytesIO()
-    doc = SimpleDocTemplate(bio, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
-    font_path = "Cairo-Regular.ttf"
-    font_registered = False
+    pdf = SimplePDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
     
-    try:
-        font_url = "https://github.com/google/fonts/raw/main/ofl/cairo/Cairo-Regular.ttf"
-        response = requests.get(font_url, timeout=10)
-        if response.status_code == 200:
-            with open(font_path, "wb") as f:
-                f.write(response.content)
-            pdfmetrics.registerFont(TTFont('CairoCustom', font_path))
-            font_registered = True
-    except Exception:
-        pass
-
-    active_font = 'CairoCustom' if font_registered else 'Helvetica'
-
-    styles = getSampleStyleSheet()    
-    ar_style = ParagraphStyle(
-        'ArabicStyle',
-        parent=styles['Normal'],
-        fontName=active_font,
-        fontSize=11,
-        leading=18,
-        alignment=TA_RIGHT
-    )
+    pdf.set_font("Helvetica", size=12)
+    pdf.cell(200, 10, txt="Mukhtasar Report", ln=True, align='C')
+    pdf.ln(5)
     
-    title_style = ParagraphStyle(
-        'TitleStyle',
-        parent=styles['Heading1'],
-        fontName=active_font,
-        fontSize=16,
-        leading=22,
-        alignment=TA_CENTER
-    )
-
-    story = []
-    story.append(Paragraph("Mukhtasar Report", title_style))
-    story.append(Spacer(1, 15))
+    pdf.set_font("Helvetica", style='B', size=11)
+    pdf.cell(200, 8, txt="Summary:", ln=True)
     
-    story.append(Paragraph("<b>Summary:</b>", ar_style))
-    story.append(Spacer(1, 5))
-    story.append(Paragraph(summary.replace('\n', '<br/>'), ar_style))
-    story.append(Spacer(1, 15))
+    pdf.set_font("Helvetica", size=10)
+    pdf.multi_cell(190, 6, txt=pdf.normalize_text(summary))
+    pdf.ln(5)
     
-    story.append(Paragraph("<b>Chat History:</b>", ar_style))
-    story.append(Spacer(1, 5))
+    pdf.set_font("Helvetica", style='B', size=11)
+    pdf.cell(200, 8, txt="Chat History:", ln=True)
     
+    pdf.set_font("Helvetica", size=10)
     for m in history:
-        role = "(User):" if m['role']=='user' else "(Assistant):"
-        content = m['content'].replace('\n', '<br/>')
-        story.append(Paragraph(f"<b>{role}</b> {content}", ar_style))
-        story.append(Spacer(1, 8))
+        role = "User" if m['role']=='user' else "Assistant"
+        content_text = f"{role}: {m['content']}"
+        pdf.multi_cell(190, 6, txt=pdf.normalize_text(content_text))
+        pdf.ln(2)
         
-    doc.build(story)
-    
-    if os.path.exists(font_path):
-        os.remove(font_path)
-        
-    bio.seek(0)
-    return bio.getvalue()
+    return bytes(pdf.output())
 
 st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs and PDFs with interactive chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
