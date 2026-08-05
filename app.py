@@ -97,7 +97,8 @@ def export_docx(summary, history):
 def export_pdf(summary, history):
     pdf = CairoPDF()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)    
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
     font_name = "Cairo"
     try:
         pdf.set_font(font_name, size=12)
@@ -127,7 +128,7 @@ def export_pdf(summary, history):
         
     return bytes(pdf.output())
 
-st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs and PDFs with interactive chat.</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
 source = st.selectbox("Choose Source Type", ["URL", "PDF", "Text"])
 
@@ -176,12 +177,8 @@ if st.session_state.raw_text and "vectordb" not in st.session_state:
 
 if "summary" in st.session_state and st.session_state.summary:
     st.markdown("-----")
-    col_s1, col_s2 = st.columns([0.85, 0.15])
-    with col_s1:
-        st.subheader("Summary:")
-    with col_s2:
-        st.copy_button("Copy", st.session_state.summary)
-    st.write(st.session_state.summary)
+    st.subheader("Summary:")
+    st.text_area("Summary Text (Click inside to copy):", st.session_state.summary, height=150)
 
 if st.session_state.get("vectordb"):
     st.markdown("-----")
@@ -193,7 +190,6 @@ if st.session_state.get("vectordb"):
     for idx, m in enumerate(st.session_state.messages):
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
-            st.copy_button("Copy", m["content"], key=f"copy_msg_{idx}")
 
     if q := st.chat_input("Ask a question..."):
         st.session_state.messages.append({"role": "user", "content": q})
