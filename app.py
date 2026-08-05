@@ -10,14 +10,6 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
-import arabic_reshaper
-from bidi.algorithm import get_display
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.enums import TA_RIGHT, TA_LEFT
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
@@ -66,17 +58,6 @@ def process_text(text):
     chunks = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100).split_documents([Document(page_content=text)])
     return FAISS.from_documents(chunks, get_embeddings())
 
-def fix_arabic(text):
-    if not isinstance(text, str):
-        return str(text)
-    try:
-        if any("\u0600" <= c <= "\u06ff" for c in text):
-            reshaped_text = arabic_reshaper.reshape(text)
-            return get_display(reshaped_text)
-        return text
-    except Exception:
-        return text
-
 def export_docx(summary, history):
     doc = DocxDocument()
     doc.add_heading('Mukhtasar Report', 0)
@@ -89,66 +70,6 @@ def export_docx(summary, history):
     doc.save(bio)
     bio.seek(0)
     return bio
-
-def export_pdf(summary, history):
-    bio = BytesIO()
-    doc = SimpleDocTemplate(bio, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)    
-    font_name = "Helvetica"
-    font_path = "Cairo-Regular.ttf"
-    if os.path.exists(font_path):
-        try:
-            pdfmetrics.registerFont(TTFont('CairoLocal', font_path))
-            font_name = 'CairoLocal'
-        except Exception:
-            pass
-
-    styles = getSampleStyleSheet()    
-    title_style = ParagraphStyle(
-        'PDFTitle',
-        parent=styles['Heading1'],
-        fontName=font_name,
-        fontSize=16,
-        leading=22,
-        alignment=TA_LEFT
-    )
-    
-    heading_style = ParagraphStyle(
-        'PDFHeading',
-        parent=styles['Heading2'],
-        fontName=font_name,
-        fontSize=12,
-        leading=18,
-        alignment=TA_LEFT
-    )
-    
-    body_style = ParagraphStyle(
-        'PDFBody',
-        parent=styles['Normal'],
-        fontName=font_name,
-        fontSize=10,
-        leading=16,
-        alignment=TA_RIGHT
-    )
-
-    story = []    
-    story.append(Paragraph("Mukhtasar Report", title_style))
-    story.append(Spacer(1, 15))    
-    story.append(Paragraph("Summary:", heading_style))
-    story.append(Spacer(1, 5))
-    story.append(Paragraph(fix_arabic(summary.replace('\n', '<br/>')), body_style))
-    story.append(Spacer(1, 15))
-    story.append(Paragraph("Chat History:", heading_style))
-    story.append(Spacer(1, 5))
-    
-    for m in history:
-        role = "User: " if m['role']=='user' else "Assistant: "
-        full_content = role + m['content']
-        story.append(Paragraph(fix_arabic(full_content.replace('\n', '<br/>')), body_style))
-        story.append(Spacer(1, 8))
-        
-    doc.build(story)
-    bio.seek(0)
-    return bio.getvalue()
 
 st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs and PDFs with interactive chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
@@ -228,8 +149,9 @@ if st.session_state.get("vectordb"):
     if st.session_state.messages:
         st.markdown("---")
         st.subheader("Export Report")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.download_button("Download Word", export_docx(st.session_state.summary, st.session_state.messages), "Mukhtasar.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        with c2:
-            st.download_button("Download PDF", export_pdf(st.session_state.summary, st.session_state.messages), "Mukhtasar.pdf", "application/pdf")
+        st.download_button(
+            "Download Word Report", 
+            export_docx(st.session_state.summary, st.session_state.messages), 
+            "Mukhtasar.docx", 
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
