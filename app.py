@@ -115,9 +115,9 @@ def export_pdf(summary, history):
         
     return bytes(pdf.output())
 
-st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive chat.</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive RAG chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
-source = st.radio("Source:", ["URL", "PDF", "Text"])
+source = st.selectbox("Choose Source Type", ["URL", "PDF", "Text"])
 
 if "last_source" not in st.session_state:
     st.session_state.last_source = source
