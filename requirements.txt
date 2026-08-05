@@ -3,8 +3,6 @@ requests
 beautifulsoup4
 python-docx
 fpdf2
-arabic-reshaper
-python-bidi
 langchain
 langchain-core
 langchain-community
