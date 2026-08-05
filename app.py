@@ -4,13 +4,17 @@ import requests
 from bs4 import BeautifulSoup
 from io import BytesIO
 from docx import Document as DocxDocument
-from fpdf import FPDF
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
@@ -59,10 +63,6 @@ def process_text(text):
     chunks = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100).split_documents([Document(page_content=text)])
     return FAISS.from_documents(chunks, get_embeddings())
 
-class UnicodePDF(FPDF):
-    def normalize_text(self, text):
-        return text.encode('latin-1', 'replace').decode('latin-1') if isinstance(text, str) else text
-
 def export_docx(summary, history):
     doc = DocxDocument()
     doc.add_heading('Mukhtasar Report', 0)
@@ -77,70 +77,69 @@ def export_docx(summary, history):
     return bio
 
 def export_pdf(summary, history):
-    pdf = UnicodePDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
+    bio = BytesIO()
+    doc = SimpleDocTemplate(bio, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     
-    # محاولة إضافة وتطبيق خط Cairo، وإذا حدث أي خطأ يتم استخدام خط Arial تفادياً لأي توقف
-    font_loaded = False
-    font_url = "https://github.com/google/fonts/raw/main/ofl/cairo/Cairo%5Bslnt%2Cwght%5D.ttf"
+    font_url = "https://github.com/google/fonts/raw/main/ofl/cairo/Cairo-Regular.ttf"
+    font_path = "Cairo-Regular.ttf"
     try:
         response = requests.get(font_url, timeout=5)
         if response.status_code == 200:
-            font_path = "Cairo.ttf"
             with open(font_path, "wb") as f:
                 f.write(response.content)
-            pdf.add_font("Cairo", "", font_path, uni=True)
-            if os.path.exists(font_path):
-                os.remove(font_path)
-            font_loaded = True
+            pdfmetrics.registerFont(TTFont('Cairo', font_path))
+            font_name = 'Cairo'
+        else:
+            font_name = 'Helvetica'
     except Exception:
-        pass
+        font_name = 'Helvetica'
 
-    # كتابة محتوى الـ PDF بأمان تام
-    if font_loaded:
-        pdf.set_font("Cairo", size=12)
-    else:
-        pdf.set_font("Arial", size=12)
+    styles = getSampleStyleSheet()
+    custom_style = ParagraphStyle(
+        'CairoStyle',
+        parent=styles['Normal'],
+        fontName=font_name,
+        fontSize=11,
+        leading=16,
+        alignment=2
+    )
+    
+    title_style = ParagraphStyle(
+        'CairoTitle',
+        parent=styles['Heading1'],
+        fontName=font_name,
+        fontSize=16,
+        leading=22,
+        alignment=1
+    )
 
-    pdf.cell(200, 10, txt="Mukhtasar Report", ln=True, align='C')
-    pdf.ln(5)
+    story = []
+    story.append(Paragraph("Mukhtasar Report", title_style))
+    story.append(Spacer(1, 15))
     
-    if font_loaded:
-        pdf.set_font("Cairo", style='B', size=11)
-    else:
-        pdf.set_font("Arial", style='B', size=11)
-        
-    pdf.cell(200, 8, txt="Summary:", ln=True)
+    story.append(Paragraph("<b>Summary:</b>", custom_style))
+    story.append(Spacer(1, 5))
+    story.append(Paragraph(summary.replace('\n', '<br/>'), custom_style))
+    story.append(Spacer(1, 15))
     
-    if font_loaded:
-        pdf.set_font("Cairo", size=10)
-    else:
-        pdf.set_font("Arial", size=10)
-        
-    pdf.multi_cell(190, 6, txt=pdf.normalize_text(summary))
-    pdf.ln(5)
+    story.append(Paragraph("<b>Chat History:</b>", custom_style))
+    story.append(Spacer(1, 5))
     
-    if font_loaded:
-        pdf.set_font("Cairo", style='B', size=11)
-    else:
-        pdf.set_font("Arial", style='B', size=11)
-        
-    pdf.cell(200, 8, txt="Chat History:", ln=True)
-    
-    if font_loaded:
-        pdf.set_font("Cairo", size=10)
-    else:
-        pdf.set_font("Arial", size=10)
-        
     for m in history:
-        role = "User" if m['role']=='user' else "Assistant"
-        pdf.multi_cell(190, 6, txt=f"{role}: {pdf.normalize_text(m['content'])}")
-        pdf.ln(2)
+        role = "(User):" if m['role']=='user' else "(Assistant):"
+        content = m['content'].replace('\n', '<br/>')
+        story.append(Paragraph(f"<b>{role}</b> {content}", custom_style))
+        story.append(Spacer(1, 8))
         
-    return bytes(pdf.output())
+    doc.build(story)
+    
+    if os.path.exists(font_path):
+        os.remove(font_path)
+        
+    bio.seek(0)
+    return bio.getvalue()
 
-st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive RAG chat.</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs and PDFs with interactive chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
 source = st.selectbox("Choose Source Type", ["URL", "PDF", "Text"])
 
