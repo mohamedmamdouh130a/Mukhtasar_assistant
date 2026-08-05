@@ -191,7 +191,7 @@ elif source == "Video":
 if st.session_state.raw_text and "vectordb" not in st.session_state:
     with st.spinner("Processing..."):
         st.session_state.vectordb = process_text(st.session_state.raw_text)
-        st.session_state.summary = ask_groq(f"Summarize this text concisely:\n\n{st.session_state.raw_text[:3000]}", lang)
+        st.session_state.summary = ask_groq(f"Provide a comprehensive, detailed, and structured summary of the following text, highlighting all key concepts, main points, and important details:\n\n{st.session_state.raw_text[:10000]}", lang)
         st.session_state.messages = []
 
 if "summary" in st.session_state and st.session_state.summary:
