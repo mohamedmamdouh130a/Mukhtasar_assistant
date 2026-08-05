@@ -163,17 +163,10 @@ elif source == "Video":
     vid_url = st.text_input("Paste Video URL (YouTube, Facebook, TikTok, etc.):")
     if vid_url and st.button("Process Video"):
         with st.spinner("Processing video audio..."):
-            try:
-                audio_path = "temp_audio.m4a"
+            audio_path = "temp_audio.m4a"
                 ydl_opts = {
                     'format': 'bestaudio/best',
                     'outtmpl': 'temp_audio',
-                    'noplaylist': True,
-                    'geo_bypass': True,
-                    'nocheckcertificate': True,
-                    'http_headers': {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    },
                     'postprocessors': [{
                         'key': 'FFmpegExtractAudio',
                         'preferredcodec': 'm4a',
@@ -196,8 +189,6 @@ elif source == "Video":
                 
                 st.session_state.pop("vectordb", None)
                 st.success("Video processed and transcribed successfully!")
-            except Exception as e:
-                st.error(f"Error processing video: {e}")
                 
 if st.session_state.raw_text and "vectordb" not in st.session_state:
     with st.spinner("Processing..."):
