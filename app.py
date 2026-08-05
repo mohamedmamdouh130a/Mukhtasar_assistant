@@ -164,28 +164,27 @@ elif source == "Text":
 elif source == "Video":
     vid_url = st.text_input("Paste Video URL (YouTube, Facebook, TikTok, etc.):")
     if vid_url and st.button("Process Video"):
-        with st.spinner("Processing video audio..."):
-            audio_path = "temp_audio.m4a"
+        with st.spinner("Processing video audio via Whisper..."):
+            audio_path = "temp_audio.mp3"
             ydl_opts = {
-                'format': 'bestaudio/best',
+                'format': 'bestaudio',
                 'outtmpl': 'temp_audio',
                 'noplaylist': True,
-                'geo_bypass': True,
-                'nocheckcertificate': True,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                },
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'm4a',
-                }],
             }
-            # if os.path.exists("cookies.txt"):
-            #     ydl_opts['cookiefile'] = 'cookies.txt'
-
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([vid_url])
             
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(vid_url, download=True)
+                filename = ydl.prepare_filename(info)
+                base, ext = os.path.splitext(filename)
+                if os.path.exists(base + ".webm"):
+                    audio_path = base + ".webm"
+                elif os.path.exists(base + ".m4a"):
+                    audio_path = base + ".m4a"
+                elif os.path.exists(base + ".mp3"):
+                    audio_path = base + ".mp3"
+                else:
+                    audio_path = filename
+
             with open(audio_path, "rb") as file:
                 transcription = client.audio.transcriptions.create(
                     file=(audio_path, file.read()),
@@ -197,6 +196,9 @@ elif source == "Video":
             
             if os.path.exists(audio_path):
                 os.remove(audio_path)
+            for ext_type in ['.webm', '.m4a', '.mp3', '.opus', '.part']:
+                if os.path.exists("temp_audio" + ext_type):
+                    os.remove("temp_audio" + ext_type)
             
             st.session_state.pop("vectordb", None)
             st.success("Video processed and transcribed successfully!")
