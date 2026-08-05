@@ -11,6 +11,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from groq import Groq
+from urllib.parse import urlparse, parse_qs
+from youtube_transcript_api import YouTubeTranscriptApi
 
 st.set_page_config(page_title="Mukhtasar", page_icon="🎯", layout="centered")
 st.title("🎯 Mukhtasar")
@@ -58,8 +60,15 @@ def process_text(text):
 
 class UnicodePDF(FPDF):
     def normalize_text(self, text):
-        return text.encode('latin-1', 'replace').decode('latin-1') if isinstance(text, str) else text
+        return text
 
+def extract_video_id(url: str):
+    parsed = urlparse(url)
+    qs = parse_qs(parsed.query)
+    if not qs.get('v'):
+        return ""
+    return qs.get('v')[0]
+    
 def export_docx(summary, history):
     doc = DocxDocument()
     doc.add_heading('Mukhtasar Report', 0)
@@ -76,18 +85,28 @@ def export_docx(summary, history):
 def export_pdf(summary, history):
     pdf = UnicodePDF()
     pdf.add_page()
+    font_url = "https://github.com/google/fonts/raw/main/ofl/cairo/Cairo-Regular.ttf"
+    response = requests.get(font_url)
+    font_path = "Cairo-Regular.ttf"
+    with open(font_path, "wb") as f:
+        f.write(response.content)
+    
+    pdf.add_font("Cairo", "", font_file)
+    if os.path.exists(font_path):
+        os.remove(font_path)
+    
     pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Arial", size=12)
+    pdf.set_font("Cairo", size=12)
     pdf.cell(200, 10, txt="Mukhtasar Report", ln=True, align='C')
     pdf.ln(5)
-    pdf.set_font("Arial", style='B', size=11)
+    pdf.set_font("Cairo", style='B', size=11)
     pdf.cell(200, 8, txt="Summary:", ln=True)
-    pdf.set_font("Arial", size=10)
+    pdf.set_font("Cairo", size=10)
     pdf.multi_cell(190, 6, txt=pdf.normalize_text(summary))
     pdf.ln(5)
-    pdf.set_font("Arial", style='B', size=11)
+    pdf.set_font("Cairo", style='B', size=11)
     pdf.cell(200, 8, txt="Chat History:", ln=True)
-    pdf.set_font("Arial", size=10)
+    pdf.set_font("Cairo", size=10)
     for m in history:
         role = "User" if m['role']=='user' else "Assistant"
         pdf.multi_cell(190, 6, txt=f"{role}: {pdf.normalize_text(m['content'])}")
@@ -96,7 +115,7 @@ def export_pdf(summary, history):
 
 st.markdown('<p class="subtitle">AI assistant for Summarizing text, URLs, and PDFs with interactive RAG chat.</p>', unsafe_allow_html=True)
 lang = st.selectbox("Language:", ["Arabic", "English", "French"])
-source = st.radio("Source:", ["URL", "PDF", "Text"])
+source = st.selectbox("Choose Source Type", ["Text", "PDF", "URL", "YouTube Video"])
 
 if "last_source" not in st.session_state:
     st.session_state.last_source = source
@@ -135,6 +154,22 @@ elif source == "Text":
         st.session_state.raw_text = text_input
         st.session_state.pop("vectordb", None)
 
+elif source == "YouTube Video":
+    yt_url = st.text_input("Paste YouTube URL:")
+    if yt_url and st.button("Process YouTube"):
+        with st.spinner("Fetching transcript from YouTube..."):
+            video_id = extract_video_id(yt_url)
+                if not video_id:
+                    st.error("Invalid YouTube URL!")
+                else:
+                    api = YouTubeTranscriptApi()
+                    fetched = api.fetch(video_id)
+                    full_text = "\n".join([snippet.text for snippet in fetched])
+            
+                    st.session_state.raw_text = full_text
+                    st.session_state.pop("vectordb", None)
+                    st.success("YouTube transcript loaded successfully!")
+                    
 if st.session_state.raw_text and "vectordb" not in st.session_state:
     with st.spinner("Processing..."):
         st.session_state.vectordb = process_text(st.session_state.raw_text)
